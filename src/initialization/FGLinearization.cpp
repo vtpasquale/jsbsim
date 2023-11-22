@@ -26,36 +26,11 @@ FGLinearization::FGLinearization(FGFDMExec * fdm)
     : aircraft_name(fdm->GetAircraft()->GetAircraftName())
 {
     FGStateSpace ss(fdm);
-    ss.x.add(new FGStateSpace::Vt);
-    ss.x.add(new FGStateSpace::Alpha);
-    ss.x.add(new FGStateSpace::Theta);
-    ss.x.add(new FGStateSpace::Q);
-
-    // get propulsion pointer to determine type/ etc.
-    auto engine0 = fdm->GetPropulsion()->GetEngine(0);
-    FGThruster * thruster0 = engine0->GetThruster();
-
-    if (thruster0->GetType()==FGThruster::ttPropeller)
-    {
-        ss.x.add(new FGStateSpace::Rpm0);
-        // TODO add variable prop pitch property
-        // if (variablePropPitch) ss.x.add(new FGStateSpace::PropPitch);
-        int numEngines = fdm->GetPropulsion()->GetNumEngines();
-        if (numEngines>1) ss.x.add(new FGStateSpace::Rpm1);
-        if (numEngines>2) ss.x.add(new FGStateSpace::Rpm2);
-        if (numEngines>3) ss.x.add(new FGStateSpace::Rpm3);
-        if (numEngines>4) {
-            std::cerr << "more than 4 engines not currently handled" << std::endl;
-        }
-    }
     ss.x.add(new FGStateSpace::Beta);
-    ss.x.add(new FGStateSpace::Phi);
+    ss.x.add(new FGStateSpace::Alpha);
     ss.x.add(new FGStateSpace::P);
-    ss.x.add(new FGStateSpace::Psi);
+    ss.x.add(new FGStateSpace::Q);
     ss.x.add(new FGStateSpace::R);
-    ss.x.add(new FGStateSpace::Latitude);
-    ss.x.add(new FGStateSpace::Longitude);
-    ss.x.add(new FGStateSpace::Alt);
 
     ss.u.add(new FGStateSpace::ThrottleCmd);
     ss.u.add(new FGStateSpace::DaCmd);
@@ -103,6 +78,58 @@ void FGLinearization::WriteScicoslab(std::string& path) const {
             << aircraft_name << ".tfm = ss2tf(" << aircraft_name << ".sys);\n"
             << std::endl;
     scicos.close();
+
+    // Export A Matrix to CSV file - - - - - - - - - - - - -
+    std::ofstream aFile("a.csv");
+    aFile.precision(10);
+
+    // States Names
+    for (unsigned int i = 0; i < x_names.size(); i++)
+      aFile << x_names[i] << ",";
+    aFile << "\n";
+
+    // A matrix
+    for (int i = 0; i < A.size(); i++) {
+      for (int j = 0; j < A[i].size(); j++)
+        aFile << std::scientific << std::setw(width) << A[i][j] << ",";
+      aFile << "\n";
+    }
+    aFile.close();
+
+    cout << "\n\nState Matrix written to file. States:\n";
+    for (unsigned int i = 0; i < x_names.size(); i++)
+      cout << std::setw(width) << x_names[i] << ",";
+    cout << "\n";
+    for (unsigned int i = 0; i < x_units.size(); i++) {
+      cout << std::setw(width) << x_units[i] << ",";
+    }
+    cout << "\n";
+
+    // Export B Matrix to CSV file - - - - - - - - - - - - -
+    std::ofstream bFile("b.csv");
+    bFile.precision(10);
+
+    // Control Names
+    for (unsigned int i = 0; i < u_names.size(); i++)
+      bFile << u_names[i] << ",";
+    bFile << "\n";
+
+    // B matrix
+    for (int i = 0; i < B.size(); i++) {
+      for (int j = 0; j < B[i].size(); j++)
+        bFile << std::scientific << std::setw(width) << B[i][j] << ",";
+      bFile << "\n";
+    }
+    bFile.close();
+
+    cout << "\n\nControl Matrix written to file. Control inputs:\n";
+    for (unsigned int i = 0; i < u_names.size(); i++)
+      cout << std::setw(width) << u_names[i] << ",";
+    cout << "\n";
+    for (unsigned int i = 0; i < u_units.size(); i++) {
+      cout << std::setw(width) << u_units[i] << ",";
+    }
+    cout << "\n";
 
 }
 
